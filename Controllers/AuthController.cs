@@ -20,5 +20,14 @@ namespace TestJWT.Controllers
 
             return Ok(user);
         }
+
+        [HttpPost("login")]
+        public ActionResult<User> Login(UserDto request)
+        {
+            if (user.Username != request.Username) return BadRequest("User not found.");
+
+            if (!BC.BCrypt.Verify(request.Password, user.PasswordHash)) return BadRequest("Wrong password.");
+            return Ok(user);
+        }
     }
 }
