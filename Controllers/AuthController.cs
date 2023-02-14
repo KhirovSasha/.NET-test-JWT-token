@@ -12,21 +12,32 @@ namespace TestJWT.Controllers
     [ApiController]
     public class AuthController : ControllerBase
     {
-        public static User user = new User();
+        private readonly AppDbContext _dbContext;
         private readonly IConfiguration _configuration;
 
-        public AuthController(IConfiguration configuration)
+        public AuthController(IConfiguration configuration, AppDbContext dbContext)
         {
             _configuration = configuration;
+            _dbContext = dbContext;
         }
 
         [HttpPost("register")]
-        public ActionResult<User> Register(UserDto request)
+        public async Task<ActionResult<User>> Register(UserDto request)
         {
             string passwordHas = BC.BCrypt.HashPassword(request.Password);
 
-            user.Username = request.Username;
-            user.PasswordHash = passwordHas;
+            var name = _dbContext.Users.FirstOrDefault(u => u.Username == request.Username);
+
+            if (name != null) return BadRequest("Your User Name already exists");
+
+            var user = new User()
+            {
+                Username = request.Username,
+                PasswordHash = passwordHas
+            };
+
+            await _dbContext.Users.AddAsync(user);
+            await _dbContext.SaveChangesAsync();
 
             return Ok(user);
         }
@@ -34,7 +45,9 @@ namespace TestJWT.Controllers
         [HttpPost("login")]
         public ActionResult<User> Login(UserDto request)
         {
-            if (user.Username != request.Username) return BadRequest("User not found.");
+            var user = _dbContext.Users.FirstOrDefault(u => u.Username == request.Username);
+
+            if (user == null) return BadRequest("User not found.");
 
             if (!BC.BCrypt.Verify(request.Password, user.PasswordHash)) return BadRequest("Wrong password.");
 
